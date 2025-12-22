@@ -1,12 +1,13 @@
-name: Deploy NestJS to Render
+name: Deploy NestJS to Render on merge
 
 on:
   push:
-    branches: [ main ]  # Change to your production branch if needed
-  workflow_dispatch:   # Allows manual triggering
+    branches:
+      - master
 
 jobs:
-  build-and-deploy:
+  lint:
+    name: Lint Codebase
     runs-on: ubuntu-latest
 
     steps:
@@ -16,20 +17,97 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'  # Use the version your NestJS app requires (e.g., 18 or 20)
-          cache: 'npm'        # Or 'yarn' if using Yarn
+          node-version: 20
+          cache: npm
 
       - name: Install dependencies
-        run: npm ci  # Or 'yarn install --frozen-lockfile'
+        run: npm ci
 
-      - name: Run linting (optional)
+      - name: Run lint
         run: npm run lint
 
-      - name: Run tests (optional but recommended)
-        run: npm test  # Or 'npm run test:cov' for coverage
+  test:
+    name: Test NestJS App
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:ci
+
+      - name: Run e2e tests (optional)
+        run: npm run test:e2e -- --watch=false
+
+  build:
+    name: Build NestJS Application
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build app
         run: npm run build
 
-      - name: Trigger Deploy on Render
-        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+      - name: Verify build output
+        run: ls -la dist/
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install production dependencies
+        run: npm ci --omit=dev
+
+      - name: Trigger Render Deploy Hook
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" \
+          -H "Content-Type: application/json" \
+          -d '{}' || true
+        shell: bash
