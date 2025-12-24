@@ -5,10 +5,10 @@ export type TechnologyDocument = Technology & Document;
 
 @Schema({ timestamps: true })
 export class Technology {
-  @Prop({ required: true,unique:true })
+  @Prop({ required: true, unique: true })
   name: string;
 
-  @Prop({ required: true, unique: true })
+  @Prop()
   slug: string;
 
   @Prop()
@@ -16,8 +16,6 @@ export class Technology {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
-
 }
 
-export const TechnologySchema =
-  SchemaFactory.createForClass(Technology);
+export const TechnologySchema = SchemaFactory.createForClass(Technology);
