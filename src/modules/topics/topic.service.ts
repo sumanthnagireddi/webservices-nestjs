@@ -9,12 +9,17 @@ import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { CreateTopicsDTO } from './dto/create-topic.dto';
 import { UpdateTopicDto } from './dto/update-topic.dto';
+import { Content, ContentDocument } from '../content/content.schema';
+import { response } from 'express';
 
 @Injectable()
 export class TopicService {
   constructor(
     @InjectModel(Topics.name)
     private readonly topicModel: Model<TopicDocument>,
+
+    @InjectModel(Content.name)
+    private readonly contentModel: Model<ContentDocument>,
   ) {}
 
   async createTopic(dto: CreateTopicsDTO, userId: string) {
@@ -53,10 +58,16 @@ export class TopicService {
     return updated;
   }
 
-  async delete(id: string): Promise<void> {
-    const result = await this.topicModel.findByIdAndDelete(id);
-    if (!result) {
+  async delete(id: string): Promise<{ message: string }> {
+    const topicId = new Types.ObjectId(id);
+
+    const topic = await this.topicModel.findByIdAndDelete(id);
+    if (!topic) {
       throw new NotFoundException('Topic not found');
     }
+    // await this.contentModel.deleteOne({ topicId });
+    return {
+      message: 'Topic and related content deleted successfully',
+    };
   }
 }

@@ -8,6 +8,7 @@ import { Model, Types } from 'mongoose';
 import { CreateTechnologyDto } from './dto/create-technology.dto';
 import { Technology, TechnologyDocument } from './technologies.schema';
 import { UpdateTechnologyDto } from './dto/update-technology.dto';
+import { Content, ContentDocument } from '../content/content.schema';
 
 @Injectable()
 export class TechnologyService {

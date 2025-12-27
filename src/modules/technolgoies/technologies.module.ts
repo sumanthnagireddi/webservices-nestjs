@@ -3,6 +3,7 @@ import { TechnologyService } from './technologies.service';
 import { TechnologyController } from './technologies.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Technology, TechnologySchema } from './technologies.schema';
+import { Content, ContentSchema } from '../content/content.schema';
 
 @Module({
   imports: [

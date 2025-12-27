@@ -3,6 +3,7 @@ import { TopicService } from './topic.service';
 import { TopicController } from './topics.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Topics, TopicSchema } from './topics.schema';
+import { Content, ContentSchema } from '../content/content.schema';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { Topics, TopicSchema } from './topics.schema';
         name: Topics.name,
         schema: TopicSchema,
       },
+      { name: Content.name, schema: ContentSchema },
     ]),
   ],
   controllers: [TopicController],

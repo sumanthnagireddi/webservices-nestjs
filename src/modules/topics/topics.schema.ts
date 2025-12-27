@@ -8,7 +8,10 @@ export class Topics {
 
   @Prop({ required: true })
   name: string;
-  
+
+  @Prop({ required: true })
+  topic_description: string;
+
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
 }

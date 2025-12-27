@@ -7,6 +7,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TechnologiesModule } from './modules/technolgoies/technologies.module';
 import { TestModule } from './modules/technolgoies copy/test.module';
 import { TopicsModule } from './modules/topics/topics.module';
+import { ContentModule } from './modules/content/content.module';
 
 @Module({
   imports: [
@@ -24,7 +25,8 @@ import { TopicsModule } from './modules/topics/topics.module';
     ResourcesModule,
     TechnologiesModule,
     TestModule,
-    TopicsModule
+    TopicsModule,
+    ContentModule
   ],
   controllers: [AppController],
   providers: [AppService],

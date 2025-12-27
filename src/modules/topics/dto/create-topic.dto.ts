@@ -4,8 +4,11 @@ export class CreateTopicsDTO {
   @IsString()
   @IsNotEmpty()
   technologyId: string;
-  
+
   @IsString()
   @IsNotEmpty()
   name: string;
+  @IsString()
+  @IsNotEmpty()
+  topic_description: string;
 }
