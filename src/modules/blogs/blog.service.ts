@@ -8,11 +8,12 @@ export class BlogService {
   constructor(
     @InjectModel(Blog.name)
     private readonly blogModel: Model<BlogDocument>,
-  ) {}
+  ) { }
 
   /* ---------- Create ---------- */
   async create(data: Partial<Blog>): Promise<Blog> {
-    const blog = new this.blogModel(data);
+    const userId = '64f1a1c2a12b3c001a000001';
+    const blog = new this.blogModel({ ...data, authorId: userId });
     return blog.save();
   }
 

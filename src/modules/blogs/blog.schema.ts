@@ -13,9 +13,7 @@ export type BlogDocument = Blog & Document;
   timestamps: true, // creates createdAt & updatedAt
 })
 export class Blog {
-  /* ---------- Identity ---------- */
-  @Prop({ required: true, unique: true, index: true })
-  slug: string;
+ 
 
   /* ---------- Core Content ---------- */
   @Prop({ required: true, trim: true })
