@@ -9,6 +9,7 @@ import { TestModule } from './modules/technolgoies copy/test.module';
 import { TopicsModule } from './modules/topics/topics.module';
 import { ContentModule } from './modules/content/content.module';
 import { BlogModule } from './modules/blogs/blog.module';
+import { CronExpression, ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { BlogModule } from './modules/blogs/blog.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ScheduleModule.forRoot(),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

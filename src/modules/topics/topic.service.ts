@@ -4,15 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { TopicDocument, Topics } from './topics.schema';
-import { TopicsModule } from './topics.module';
 import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { CreateTopicsDTO } from './dto/create-topic.dto';
 import { UpdateTopicDto } from './dto/update-topic.dto';
 import { Content, ContentDocument } from '../content/content.schema';
-import { response } from 'express';
-import { UpdateContentDto } from '../content/dtos/update-content.dto';
-import { CreateContentDTO } from '../content/dtos/create-content.dto';
 
 @Injectable()
 export class TopicService {
@@ -49,7 +45,7 @@ export class TopicService {
     return await this.topicModel.find({ technologyId: id });
   }
   async update(id: string, dto: UpdateTopicDto): Promise<Topics> {
-    console.log(dto)
+    console.log(dto);
     const body = {
       title: dto.name,
       description: dto.topic_description,

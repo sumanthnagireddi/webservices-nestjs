@@ -28,7 +28,7 @@ export class TechnologyController {
   findAllPublic() {
     return this.technologyService.findAllPublic();
   }
-  
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateTechnologyDto) {
     return this.technologyService.update(id, dto);

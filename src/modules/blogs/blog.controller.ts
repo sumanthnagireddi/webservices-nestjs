@@ -40,10 +40,7 @@ export class BlogController {
 
   /* ---------- Update ---------- */
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() body: Partial<Blog>,
-  ) {
+  update(@Param('id') id: string, @Body() body: Partial<Blog>) {
     return this.blogService.update(id, body);
   }
 

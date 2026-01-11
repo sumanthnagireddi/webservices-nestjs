@@ -8,7 +8,7 @@ export class BlogService {
   constructor(
     @InjectModel(Blog.name)
     private readonly blogModel: Model<BlogDocument>,
-  ) { }
+  ) {}
 
   /* ---------- Create ---------- */
   async create(data: Partial<Blog>): Promise<Blog> {
@@ -45,11 +45,9 @@ export class BlogService {
 
   /* ---------- Update ---------- */
   async update(id: string, data: Partial<Blog>): Promise<Blog> {
-    const blog = await this.blogModel.findByIdAndUpdate(
-      id,
-      data,
-      { new: true },
-    );
+    const blog = await this.blogModel.findByIdAndUpdate(id, data, {
+      new: true,
+    });
 
     if (!blog) {
       throw new NotFoundException('Blog not found');
@@ -78,10 +76,9 @@ export class BlogService {
 
   /* ---------- Soft Delete ---------- */
   async remove(id: string): Promise<void> {
-    const result = await this.blogModel.findByIdAndUpdate(
-      id,
-      { isActive: false },
-    );
+    const result = await this.blogModel.findByIdAndUpdate(id, {
+      isActive: false,
+    });
 
     if (!result) {
       throw new NotFoundException('Blog not found');

@@ -5,6 +5,7 @@ export enum ContentStatus {
   REVIEW = 'REVIEW',
   PUBLISHED = 'PUBLISHED',
   ARCHIVED = 'ARCHIVED',
+  SCHEDULED = 'SCHEDULED',
 }
 export type BlogDocument = Blog & Document;
 
@@ -13,8 +14,6 @@ export type BlogDocument = Blog & Document;
   timestamps: true, // creates createdAt & updatedAt
 })
 export class Blog {
- 
-
   /* ---------- Core Content ---------- */
   @Prop({ required: true, trim: true })
   title: string;

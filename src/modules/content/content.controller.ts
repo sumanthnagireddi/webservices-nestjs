@@ -17,7 +17,7 @@ export class ContentController {
   getContent(@Param('topicId') topicId: string) {
     return this.contentService.getContentByTopicId(topicId);
   }
-  
+
   @Get()
   getAllContents() {
     return this.contentService.getContents();

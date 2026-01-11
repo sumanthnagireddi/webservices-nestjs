@@ -38,19 +38,13 @@ export class TestController {
 
   // ✅ FULL UPDATE (PUT)
   @Put(':id')
-  updateFull(
-    @Param('id') id: string,
-    @Body() dto: UpdateTechnologyDto,
-  ) {
+  updateFull(@Param('id') id: string, @Body() dto: UpdateTechnologyDto) {
     return this.technologyService.updateFull(id, dto);
   }
 
   // PARTIAL UPDATE (PATCH)
   @Patch(':id')
-  updatePartial(
-    @Param('id') id: string,
-    @Body() dto: UpdateTechnologyDto,
-  ) {
+  updatePartial(@Param('id') id: string, @Body() dto: UpdateTechnologyDto) {
     return this.technologyService.update(id, dto);
   }
 
