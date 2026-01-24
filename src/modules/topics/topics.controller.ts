@@ -3,9 +3,12 @@ import {
   Controller,
   Delete,
   Get,
+  Inject,
   Param,
   Patch,
   Post,
+  Req,
+  Request,
 } from '@nestjs/common';
 import { TopicService } from './topic.service';
 import { CreateTopicsDTO } from './dto/create-topic.dto';
@@ -14,9 +17,10 @@ import { UpdateTopicDto } from './dto/update-topic.dto';
 @Controller('topics')
 export class TopicController {
   userId = '64f1a1c2a12b3c001a000001';
-  constructor(private topicService: TopicService) {}
+  @Inject() private topicService: TopicService
+  constructor() { }
   @Post()
-  createTopic(@Body() topicDto: CreateTopicsDTO) {
+  createTopic(@Request() @Body() topicDto: CreateTopicsDTO) {
     return this.topicService.createTopic(topicDto, this.userId);
   }
 

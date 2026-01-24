@@ -1,0 +1,19 @@
+Signin - 
+  1. Validate input
+2. Check email exists
+3. Hash password
+4. Save user
+
+Login
+    1. Check user exists
+2. Compare password
+3. Generate access token
+4. Generate refresh token
+5. Store refresh token (hashed)
+
+refresh
+   1. Verify refresh token
+2. Check token exists in DB
+3. Generate new access token
+(optional)
+4. Rotate refresh token

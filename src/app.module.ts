@@ -10,6 +10,9 @@ import { TopicsModule } from './modules/topics/topics.module';
 import { ContentModule } from './modules/content/content.module';
 import { BlogModule } from './modules/blogs/blog.module';
 import { CronExpression, ScheduleModule } from '@nestjs/schedule';
+import { UserModule } from './modules/user/user.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -25,14 +28,25 @@ import { CronExpression, ScheduleModule } from '@nestjs/schedule';
       }),
       inject: [ConfigService],
     }),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '10m' },
+      }),
+      global: true,
+      inject: [ConfigService],
+    }),
     ResourcesModule,
     TechnologiesModule,
     TestModule,
     TopicsModule,
     ContentModule,
     BlogModule,
+    UserModule,
+    AuthModule
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
