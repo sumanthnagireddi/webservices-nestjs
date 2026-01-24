@@ -34,8 +34,6 @@ describe('ContentService', () => {
     findOne: jest.fn(),
     findOneAndUpdate: jest.fn(),
     find: jest.fn(),
-    new: jest.fn(),
-    constructor: jest.fn(),
   };
 
   const mockTopicModel = {
@@ -43,12 +41,16 @@ describe('ContentService', () => {
   };
 
   beforeEach(async () => {
+    // Create a mock constructor for the model
+    const MockContentModel = jest.fn().mockImplementation((data) => data);
+    Object.assign(MockContentModel, mockContentModel);
+    
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ContentService,
         {
           provide: getModelToken(Content.name),
-          useValue: mockContentModel,
+          useValue: Object.assign(jest.fn(), mockContentModel),
         },
         {
           provide: getModelToken(Topics.name),
@@ -140,7 +142,7 @@ describe('ContentService', () => {
     it('should throw NotFoundException when content not found', async () => {
       mockContentModel.findOneAndUpdate.mockResolvedValue(null);
 
-      await expect(service.getContentByTopicId('nonexistent')).rejects.toThrow(
+      await expect(service.getContentByTopicId('64f1a1c2a12b3c001a000004')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -171,7 +173,7 @@ describe('ContentService', () => {
       mockContentModel.findOneAndUpdate.mockResolvedValue(null);
 
       await expect(
-        service.updateContent('nonexistent', { body: 'Test' }),
+        service.updateContent('64f1a1c2a12b3c001a000004', { body: 'Test' }),
       ).rejects.toThrow(NotFoundException);
     });
   });
