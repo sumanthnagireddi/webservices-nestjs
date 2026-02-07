@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Scope,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -10,7 +11,7 @@ import { Technology, TechnologyDocument } from './technologies.schema';
 import { UpdateTechnologyDto } from './dto/update-technology.dto';
 import { Content, ContentDocument } from '../content/content.schema';
 
-@Injectable()
+@Injectable({scope:Scope.DEFAULT})
 export class TechnologyService {
   constructor(
     @InjectModel(Technology.name)

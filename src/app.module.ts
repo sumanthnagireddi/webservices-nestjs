@@ -10,6 +10,10 @@ import { TopicsModule } from './modules/topics/topics.module';
 import { ContentModule } from './modules/content/content.module';
 import { BlogModule } from './modules/blogs/blog.module';
 import { AiModule } from './services/ai.module';
+import { CronExpression, ScheduleModule } from '@nestjs/schedule';
+import { UserModule } from './modules/user/user.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -17,11 +21,21 @@ import { AiModule } from './services/ai.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ScheduleModule.forRoot(),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         uri: configService.get<string>('MONGODB_URI'),
       }),
+      inject: [ConfigService],
+    }),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '10m' },
+      }),
+      global: true,
       inject: [ConfigService],
     }),
     ResourcesModule,
@@ -30,9 +44,11 @@ import { AiModule } from './services/ai.module';
     TopicsModule,
     ContentModule,
     BlogModule,
-    AiModule
+    AiModule,
+    UserModule,
+    AuthModule
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

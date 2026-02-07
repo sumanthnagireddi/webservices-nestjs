@@ -12,7 +12,8 @@ export class BlogService {
 
   /* ---------- Create ---------- */
   async create(data: Partial<Blog>): Promise<Blog> {
-    const blog = new this.blogModel(data);
+    const userId = '64f1a1c2a12b3c001a000001';
+    const blog = new this.blogModel({ ...data, authorId: userId });
     return blog.save();
   }
 
@@ -44,11 +45,9 @@ export class BlogService {
 
   /* ---------- Update ---------- */
   async update(id: string, data: Partial<Blog>): Promise<Blog> {
-    const blog = await this.blogModel.findByIdAndUpdate(
-      id,
-      data,
-      { new: true },
-    );
+    const blog = await this.blogModel.findByIdAndUpdate(id, data, {
+      new: true,
+    });
 
     if (!blog) {
       throw new NotFoundException('Blog not found');
@@ -77,10 +76,9 @@ export class BlogService {
 
   /* ---------- Soft Delete ---------- */
   async remove(id: string): Promise<void> {
-    const result = await this.blogModel.findByIdAndUpdate(
-      id,
-      { isActive: false },
-    );
+    const result = await this.blogModel.findByIdAndUpdate(id, {
+      isActive: false,
+    });
 
     if (!result) {
       throw new NotFoundException('Blog not found');

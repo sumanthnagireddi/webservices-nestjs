@@ -10,7 +10,7 @@ export type ContentDocument = Content & Document;
 export class Content {
   @Prop()
   title: string;
-  
+
   @Prop()
   description: string;
 
