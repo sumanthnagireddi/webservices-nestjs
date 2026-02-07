@@ -9,6 +9,7 @@ import { TestModule } from './modules/technolgoies copy/test.module';
 import { TopicsModule } from './modules/topics/topics.module';
 import { ContentModule } from './modules/content/content.module';
 import { BlogModule } from './modules/blogs/blog.module';
+import { AiModule } from './services/ai.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { BlogModule } from './modules/blogs/blog.module';
     TopicsModule,
     ContentModule,
     BlogModule,
+    AiModule
   ],
   controllers: [AppController],
   providers: [AppService],
