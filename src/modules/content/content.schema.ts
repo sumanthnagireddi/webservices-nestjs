@@ -39,6 +39,12 @@ export class Content {
 
   @Prop({ type: Date, default: null })
   lastFetchedAt: Date;
+
+  @Prop({ type: [Number], select: false })
+  embedding?: number[];
 }
 
 export const ContentSchema = SchemaFactory.createForClass(Content);
+
+// Create a text index for fallback search
+ContentSchema.index({ title: 'text', body: 'text', description: 'text' });

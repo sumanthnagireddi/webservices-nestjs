@@ -16,17 +16,17 @@ export type BlogDocument = Blog & Document;
 export class Blog {
   /* ---------- Core Content ---------- */
   @Prop({ required: true, trim: true })
-  title: string;
+  title!: string;
 
   @Prop({ trim: true })
   description?: string;
 
   @Prop({ required: true })
-  content: string;
+  content!: string;
 
   /* ---------- Author ---------- */
   @Prop({ required: true, index: true })
-  authorId: string;
+  authorId!: string;
 
   @Prop()
   authorName?: string;
@@ -41,13 +41,16 @@ export class Blog {
     default: ContentStatus.DRAFT,
     index: true,
   })
-  status: ContentStatus;
+  status!: ContentStatus;
 
   @Prop({ default: true })
-  isActive: boolean;
+  isActive?: boolean;
 
   @Prop()
   publishedAt?: Date;
+
+  @Prop({ type: [Number], select: false })
+  embedding?: number[];
 
   /* ---------- Categorization ---------- */
   @Prop({ type: [String], index: true })
@@ -76,3 +79,6 @@ export class Blog {
 }
 
 export const BlogSchema = SchemaFactory.createForClass(Blog);
+
+// Create a text index for fallback search
+BlogSchema.index({ title: 'text', content: 'text', description: 'text' });

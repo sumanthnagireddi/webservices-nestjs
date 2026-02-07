@@ -16,6 +16,12 @@ export class Technology {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
+
+  @Prop({ type: [Number], select: false })
+  embedding?: number[];
 }
 
 export const TechnologySchema = SchemaFactory.createForClass(Technology);
+
+// Create a text index for fallback search
+TechnologySchema.index({ name: 'text', description: 'text' });

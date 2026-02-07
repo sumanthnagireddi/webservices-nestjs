@@ -1,35 +1,50 @@
-import { Injectable } from '@nestjs/common';
-import { EmbeddingService } from './embedding.service';
-import { VectorService } from './vector.service';
+import { Injectable, Logger } from '@nestjs/common';
+import { VectorService, SearchResult } from './vector.service';
 import { LlmService } from './llm.service';
 
 @Injectable()
 export class RagAgent {
+  private readonly logger = new Logger(RagAgent.name);
+
   constructor(
-    private embed: EmbeddingService,
     private vector: VectorService,
     private llm: LlmService,
   ) {}
 
   async ask(question: string) {
-    const qVector = await this.embed.embed(question);
-    const context = await this.vector.search(qVector);
-    if (!context.length) {
-      return 'No data available for this question.';
+    this.logger.log(`Processing question: "${question}"`);
+    
+    // Search for relevant context using text search (no embeddings needed)
+    const searchResults = await this.vector.search(question, 5);
+    
+    if (!searchResults.length) {
+      return {
+        status: 'success',
+        data: "I don't have any relevant information in the knowledge base to answer that question. Please make sure your content has been added to the database.",
+      };
     }
 
-    // rag.agent.ts
-    const prompt = `
-You are a technical assistant. Use the following context to answer the question. 
-If the information isn't in the context, say you don't know, but feel free to explain the context details thoroughly.
+    // Build context from search results
+    const contextParts = searchResults.map((result, idx) => {
+      return `[${idx + 1}] ${result.type.toUpperCase()}: ${result.title}\n${result.text}\n(Relevance: ${(result.score * 10).toFixed(1)}/10)`;
+    });
 
-Context:
-${context.join('\n')}
+    const context = contextParts.join('\n\n---\n\n');
+    console.log('Constructed context for RAG:\n', context);
+    // Create the RAG prompt
+    const prompt = `You are a technical assistant with access to a knowledge base containing technical content, blog posts, and technology information.
 
-Question:
+Use ONLY the following context from the knowledge base to answer the question. If the information isn't in the context, clearly state that you don't have that information in your knowledge base.
+
+CONTEXT FROM KNOWLEDGE BASE:
+${context}
+
+QUESTION:
 ${question}
-`;
 
+Please provide a comprehensive answer based on the context above. If relevant information is spread across multiple sources, synthesize them into a coherent response. Always indicate which sources ([1], [2], etc.) you're referencing.`;
+
+    // Get response from LLM
     return this.llm.ask(prompt);
   }
 }

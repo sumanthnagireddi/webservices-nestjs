@@ -15,7 +15,7 @@ export class LlmService {
   async ask(prompt: string) {
     try {
       const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
       });
 
