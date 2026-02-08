@@ -7,10 +7,10 @@ import {
   IsDate,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Optional } from '@nestjs/common';
 
 export class CreateContentDTO {
-  @IsNotEmpty()
-  @IsString()
+  @IsOptional()
   title?: string;
 
   @IsNotEmpty()
@@ -26,7 +26,7 @@ export class CreateContentDTO {
   @IsMongoId()
   technologyId?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsMongoId()
   authorId?: string;
 
