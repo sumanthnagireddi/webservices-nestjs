@@ -18,7 +18,7 @@ describe('CreateContentDTO', () => {
     expect(errors.length).toBe(0);
   });
 
-  it('should fail if title is not provided', async () => {
+  it('should be valid without title (title is optional)', async () => {
     const plain = {
       body: 'Test Body',
       topicId: '64f1a1c2a12b3c001a000004',
@@ -27,7 +27,7 @@ describe('CreateContentDTO', () => {
     const dto = plainToClass(CreateContentDTO, plain);
 
     const errors = await validate(dto);
-    expect(errors[0].property).toBe('title');
+    expect(errors.length).toBe(0);
   });
 
   it('should fail if body is not provided', async () => {
