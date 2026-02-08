@@ -27,7 +27,6 @@ describe('CreateContentDTO', () => {
     const dto = plainToClass(CreateContentDTO, plain);
 
     const errors = await validate(dto);
-    expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].property).toBe('title');
   });
 
