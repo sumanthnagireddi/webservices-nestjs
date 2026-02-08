@@ -11,7 +11,7 @@ import { Type } from 'class-transformer';
 export class CreateContentDTO {
   @IsNotEmpty()
   @IsString()
-  title: string;
+  title?: string;
 
   @IsNotEmpty()
   @IsString()
@@ -28,7 +28,7 @@ export class CreateContentDTO {
 
   @IsNotEmpty()
   @IsMongoId()
-  authorId: string;
+  authorId?: string;
 
   @IsOptional()
   @IsEnum(['draft', 'published'])

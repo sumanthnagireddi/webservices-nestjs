@@ -35,7 +35,6 @@ export class VectorService {
         .find(
           {
             $text: { $search: query },
-            status: 'published',
           },
           { score: { $meta: 'textScore' } },
         )
