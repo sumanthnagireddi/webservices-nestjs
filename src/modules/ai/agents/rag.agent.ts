@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { VectorService, SearchResult } from './vector.service';
-import { LlmService } from './llm.service';
+import { VectorService, SearchResult } from '../searvices/vector.service';
+import { LlmService } from '../searvices/llm.service';
 
 @Injectable()
 export class RagAgent {
@@ -9,14 +9,14 @@ export class RagAgent {
   constructor(
     private vector: VectorService,
     private llm: LlmService,
-  ) {}
+  ) { }
 
   async ask(question: string) {
     this.logger.log(`Processing question: "${question}"`);
-    
+
     // Search for relevant context using text search (no embeddings needed)
     const searchResults = await this.vector.search(question, 5);
-    
+
     if (!searchResults.length) {
       return {
         status: 'success',

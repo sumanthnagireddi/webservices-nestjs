@@ -14,6 +14,7 @@ import { CronExpression, ScheduleModule } from '@nestjs/schedule';
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtModule } from '@nestjs/jwt';
+import { FinanceModule } from './modules/finance/finance.module';
 
 @Module({
   imports: [
@@ -46,7 +47,8 @@ import { JwtModule } from '@nestjs/jwt';
     BlogModule,
     AiModule,
     UserModule,
-    AuthModule
+    AuthModule,
+    FinanceModule
   ],
   controllers: [AppController],
   providers: [AppService],

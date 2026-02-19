@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Content } from '../modules/content/content.schema';
-import { Blog } from '../modules/blogs/blog.schema';
-import { Technology } from '../modules/technolgoies/technologies.schema';
+import { Content } from '../../content/content.schema';
+import { Blog } from '../../blogs/blog.schema';
+import { Technology } from '../../technolgoies/technologies.schema';
 
 export interface SearchResult {
   text: string;
@@ -20,7 +20,7 @@ export class VectorService {
     @InjectModel(Content.name) private contentModel: Model<Content>,
     @InjectModel(Blog.name) private blogModel: Model<Blog>,
     @InjectModel(Technology.name) private techModel: Model<Technology>,
-  ) {}
+  ) { }
 
   /**
    * Text-based search across all collections (NO EMBEDDINGS NEEDED)

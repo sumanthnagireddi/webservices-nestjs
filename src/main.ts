@@ -44,10 +44,9 @@ async function bootstrap() {
     customfavIcon: 'https://nestjs.com/img/logo-small.svg',
     customCss: '.swagger-ui .topbar { display: none }',
   });
-
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`Application is running on port ${port}`);
-  console.log(`Swagger documentation available at http://localhost:${port}/api`);
+  // console.log(`Swagger documentation available at http://localhost:${port}/api`);
 }
 bootstrap();
