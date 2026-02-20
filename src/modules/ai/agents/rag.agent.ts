@@ -9,7 +9,7 @@ export class RagAgent {
   constructor(
     private vector: VectorService,
     private llm: LlmService,
-  ) { }
+  ) {}
 
   async ask(question: string) {
     this.logger.log(`Processing question: "${question}"`);
@@ -32,17 +32,9 @@ export class RagAgent {
     const context = contextParts.join('\n\n---\n\n');
     console.log('Constructed context for RAG:\n', context);
     // Create the RAG prompt
-    const prompt = `You are a technical assistant with access to a knowledge base containing technical content, blog posts, and technology information.
-
-Use ONLY the following context from the knowledge base to answer the question. If the information isn't in the context, clearly state that you don't have that information in your knowledge base.
-
-CONTEXT FROM KNOWLEDGE BASE:
-${context}
-
+    const prompt = `
 QUESTION:
-${question}
-
-Please provide a comprehensive answer based on the context above. If relevant information is spread across multiple sources, synthesize them into a coherent response. Always indicate which sources ([1], [2], etc.) you're referencing.`;
+${question}`;
 
     // Get response from LLM
     return this.llm.ask(prompt);

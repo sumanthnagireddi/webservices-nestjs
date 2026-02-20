@@ -6,8 +6,20 @@ export const GEMINI_MODELS = [
   'gemini-1.5-flash',
   'gemini-1.5-pro',
   'gemini-2.0-flash-exp',
-] as const;
-
+  'gemini-2.5-pro',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash-lite-preview-09-2025',
+  'gemini-2.0-flash-lite',
+  'Gemma 3',
+  'Gemma 3n',
+  
+] as any;
+/**
+ * RAG-based Document Q&A App
+ * AI-Powered SaaS Dashboard
+ * 
+ */
 export type GeminiModel = (typeof GEMINI_MODELS)[number];
 
 @Injectable()
@@ -25,7 +37,7 @@ export class LlmService {
     });
   }
 
-  async ask(prompt: string, model: GeminiModel = 'gemini-1.5-flash') {
+  async ask(prompt: string, model: GeminiModel = 'gemini-3-flash-preview') {
     try {
       this.logger.debug(`Generating content with model: ${model}`);
       

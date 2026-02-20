@@ -1,15 +1,23 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { AiService } from './ai.service';
-import { CreateAiDto } from './dto/create-ai.dto';
 import { UpdateAiDto } from './dto/update-ai.dto';
+import { RagAgent } from './agents/rag.agent';
 
 @Controller('ai')
 export class AiController {
-  constructor(private readonly aiService: AiService) {}
+  constructor(private readonly aiService: AiService,private rag: RagAgent) {}
 
-  @Post()
-  create(@Body() createAiDto: CreateAiDto) {
-    return this.aiService.create(createAiDto);
+  @Post('ask')
+  ask(@Body('question') question: string) {
+    return this.rag.ask(question);
   }
 
   @Get()

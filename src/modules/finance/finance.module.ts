@@ -8,6 +8,11 @@ import { BudgetSchema } from './schema/budget.schema';
 @Module({
   controllers: [FinanceController],
   providers: [FinanceService],
-  imports: [MongooseModule.forFeature([{ name: 'Finance', schema: FinanceSchema },{ name: 'Budget', schema:BudgetSchema }])],
-})  
+  imports: [
+    MongooseModule.forFeature([
+      { name: 'Finance', schema: FinanceSchema },
+      { name: 'Budget', schema: BudgetSchema },
+    ]),
+  ],
+})
 export class FinanceModule {}

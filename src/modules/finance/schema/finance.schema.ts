@@ -31,6 +31,9 @@ export class Finance {
 
     @Prop()
     isDeleted: boolean;
+
+    @Prop()
+    card: string;
 }
 
 export const FinanceSchema = SchemaFactory.createForClass(Finance);
