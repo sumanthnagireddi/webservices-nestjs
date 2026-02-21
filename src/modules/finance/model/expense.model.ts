@@ -21,5 +21,6 @@ export interface Expense {
     notes?: string;
     source?: 'manual' | 'sms';  // track origin
     createdAt: string;   // ISO timestamp
+    cardType?: string;     // e.g., 'credit', 'debit', 'cash'
 }
 
