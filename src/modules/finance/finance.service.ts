@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CopyBudgetDto } from './dto/budget/copyBudget.dto';
@@ -301,6 +301,415 @@ export class FinanceService {
       totalPending: debts.filter((debt) => debt.status === 'pending').length,
       totalPartial: debts.filter((debt) => debt.status === 'partial').length,
     };
+  }
+
+  private normalizeChit(chit: Finance): any {
+    const raw = chit as Finance & {
+      _id?: Types.ObjectId;
+      createdAt?: string;
+    };
+    return {
+      id: raw._id?.toString() ?? (raw as any).id,
+      name: raw.title ?? raw.name ?? 'Unnamed chit',
+      startMonth: raw.startMonth ?? '',
+      chitValue: raw.chitValue,
+      duration: raw.duration,
+      members: raw.members,
+      monthlyInstallment: raw.monthlyInstallment,
+      commissionType: raw.commissionType ?? 'PERCENT',
+      commissionValue: raw.commissionValue ?? 0,
+      currentMonth: raw.currentMonth ?? 1,
+      firstAndLastFixed: raw.firstAndLastFixed ?? true,
+      terminalDividendMonths: raw.terminalDividendMonths ?? [],
+      auctions: [...(raw.auctions ?? [])]
+        .sort((a, b) => a.month - b.month)
+        .map((auction: any) => ({
+          month: Number(auction.month),
+          winningBid: Number(auction.winningBid),
+          isActual: auction.isActual !== false,
+          verified: auction.verified === true,
+        })),
+    };
+  }
+
+  async getChits(): Promise<any[]> {
+    const chits = await this.financeModel
+      .find({ type: 'chit', isDeleted: { $ne: true } })
+      .sort({ createdAt: -1 })
+      .exec();
+    return chits.map((chit) => this.normalizeChit(chit));
+  }
+
+  async getChit(id: string): Promise<any> {
+    const chit = await this.financeModel.findOne({
+      _id: id,
+      type: 'chit',
+      isDeleted: { $ne: true },
+    }).exec();
+    if (!chit) throw new NotFoundException('Chit not found');
+    return this.normalizeChit(chit);
+  }
+
+  async createChit(body: any): Promise<any> {
+    if (
+      !body.name ||
+      Number(body.chitValue) <= 0 ||
+      Number(body.duration) < 2 ||
+      Number(body.members) < 1 ||
+      Number(body.monthlyInstallment) <= 0
+    ) throw new BadRequestException('Invalid chit details');
+    if (Number(body.members) * Number(body.monthlyInstallment) !== Number(body.chitValue)) {
+      throw new BadRequestException('Members x monthly installment must equal chit value');
+    }
+    const document = await this.financeModel.create({
+      type: 'chit',
+      title: String(body.name).trim(),
+      chitValue: Number(body.chitValue),
+      duration: Number(body.duration),
+      members: Number(body.members),
+      monthlyInstallment: Number(body.monthlyInstallment),
+      commissionType: body.commissionType === 'FIXED' ? 'FIXED' : 'PERCENT',
+      commissionValue: Number(body.commissionValue ?? 0),
+      currentMonth: Number(body.currentMonth ?? 1),
+      startMonth: body.startMonth || undefined,
+      firstAndLastFixed: body.firstAndLastFixed !== false,
+      terminalDividendMonths: Array.isArray(body.terminalDividendMonths)
+        ? body.terminalDividendMonths.map(Number)
+        : [],
+      auctions: [],
+      isDeleted: false,
+    });
+    return this.normalizeChit(document);
+  }
+
+  async updateChit(id: string, body: any): Promise<any> {
+    const raw = await this.financeModel.findOne({
+      _id: id,
+      type: 'chit',
+      isDeleted: { $ne: true },
+    }).exec();
+    if (!raw) throw new NotFoundException('Chit not found');
+
+    const patch: Record<string, any> = {};
+    if (typeof body.name === 'string') patch.title = body.name.trim();
+    if (body.chitValue !== undefined) patch.chitValue = Number(body.chitValue);
+    if (body.duration !== undefined) patch.duration = Number(body.duration);
+    if (body.members !== undefined) patch.members = Number(body.members);
+    if (body.monthlyInstallment !== undefined) patch.monthlyInstallment = Number(body.monthlyInstallment);
+    if (body.commissionType !== undefined) patch.commissionType = body.commissionType;
+    if (body.commissionValue !== undefined) patch.commissionValue = Number(body.commissionValue);
+    if (body.currentMonth !== undefined) patch.currentMonth = Number(body.currentMonth);
+    if (body.startMonth !== undefined) patch.startMonth = String(body.startMonth);
+
+    const next = {
+      chitValue: patch.chitValue ?? raw.chitValue,
+      members: patch.members ?? raw.members,
+      monthlyInstallment: patch.monthlyInstallment ?? raw.monthlyInstallment,
+    };
+    if (next.members * next.monthlyInstallment !== next.chitValue) {
+      throw new BadRequestException('Members x monthly installment must equal chit value');
+    }
+
+    const updated = await this.financeModel.findByIdAndUpdate(id, patch, { new: true }).exec();
+    if (!updated) throw new NotFoundException('Chit not found');
+    return this.normalizeChit(updated);
+  }
+
+  async addChitAuction(id: string, body: { month: number; winningBid: number }): Promise<any> {
+    const raw = await this.financeModel.findOne({ _id: id, type: 'chit', isDeleted: { $ne: true } }).exec();
+    if (!raw) throw new NotFoundException('Chit not found');
+    const month = Number(body.month);
+    const commission = this.getChitCommission(raw);
+    const winningBid = month === Number(raw.duration)
+      ? Math.max(1, Number(raw.chitValue) - commission)
+      : Number(body.winningBid);
+    if (month < 1 || month > raw.duration) throw new BadRequestException('Auction month is out of range');
+    if (winningBid <= 0 || (month !== Number(raw.duration) && winningBid >= raw.chitValue)) {
+      throw new BadRequestException('Winning payout must be greater than zero and below chit value');
+    }
+    const auctions = (raw.auctions ?? []).filter((auction) => auction.month !== month);
+    auctions.push({ month, winningBid, isActual: true, verified: false });
+    raw.auctions = auctions.sort((a, b) => a.month - b.month);
+    raw.currentMonth = Math.max(raw.currentMonth ?? 1, month);
+    raw.markModified('auctions');
+    await raw.save();
+    return this.normalizeChit(raw);
+  }
+
+  async verifyChitAuction(
+    id: string,
+    month: number,
+  ): Promise<any> {
+    const raw = await this.financeModel.findOne({
+      _id: id,
+      type: 'chit',
+      isDeleted: { $ne: true },
+    }).exec();
+    if (!raw) throw new NotFoundException('Chit not found');
+    const auction = (raw.auctions ?? []).find(
+      (item: any) => item.month === Number(month),
+    );
+    if (!auction) {
+      throw new BadRequestException('Edit and save a winning payout before verification');
+    }
+    raw.auctions = (raw.auctions ?? []).map((item: any) =>
+      item.month === Number(month)
+        ? {
+            month: item.month,
+            winningBid: item.winningBid,
+            verified: true,
+            isActual: true,
+          }
+        : item,
+    );
+    raw.currentMonth = Math.max(raw.currentMonth ?? 1, Number(month));
+    raw.markModified('auctions');
+    await raw.save();
+    return this.normalizeChit(raw);
+  }
+
+  async deleteChit(id: string): Promise<{ deleted: true }> {
+    const result = await this.financeModel.findOneAndUpdate(
+      { _id: id, type: 'chit' },
+      { isDeleted: true },
+      { new: true },
+    ).exec();
+    if (!result) throw new NotFoundException('Chit not found');
+    return { deleted: true };
+  }
+
+  async getChitDashboard() {
+    const chits = await this.getChits();
+    let totalPaidToDate = 0;
+    let totalDividendsEarnedToDate = 0;
+    for (const chit of chits) {
+      const schedule = this.buildChitSchedule(chit, false);
+      totalPaidToDate += schedule
+        .filter((row) => row.month <= chit.currentMonth)
+        .reduce((sum, row) => sum + row.installmentPaid, 0);
+      totalDividendsEarnedToDate += schedule
+        .filter((row) => row.month <= chit.currentMonth)
+        .reduce((sum, row) => sum + row.dividendPerMember, 0);
+    }
+    return {
+      chitCount: chits.length,
+      totalChitValue: chits.reduce((sum, chit) => sum + chit.chitValue, 0),
+      totalPaidToDate,
+      totalDividendsEarnedToDate,
+      chits,
+    };
+  }
+
+  async simulateChit(
+    id: string,
+    body: { withdrawalMonth: number; winningBid: number; targetAnnualReturn?: number },
+  ) {
+    const chit = await this.getChit(id);
+    const withdrawalMonth = Number(body.withdrawalMonth);
+    const requestedWinningBid = Number(body.winningBid);
+    const winningBid = withdrawalMonth === chit.duration
+      ? Math.max(1, Number(chit.chitValue) - this.getChitCommission(chit))
+      : requestedWinningBid;
+    const targetAnnualReturn = Number(body.targetAnnualReturn ?? 12);
+    if (withdrawalMonth < 1 || withdrawalMonth > chit.duration) throw new BadRequestException('Withdrawal month is out of range');
+    if (winningBid <= 0 || (withdrawalMonth !== chit.duration && winningBid >= chit.chitValue)) {
+      throw new BadRequestException('Winning payout must be between 0 and chit value');
+    }
+    const schedule = this.buildChitSchedule(chit, true, withdrawalMonth, winningBid);
+    const totalInstallments = schedule.reduce((sum, row) => sum + row.installmentPaid, 0);
+    const terminalDividends = schedule.reduce((sum, row) => sum + row.terminalDividend, 0);
+    const netCashCost = totalInstallments - terminalDividends;
+    const nominalNetGain = winningBid - netCashCost;
+    const cashFlows = schedule.map((row) => -row.installmentPaid);
+    cashFlows[withdrawalMonth - 1] += winningBid;
+    cashFlows[cashFlows.length - 1] += terminalDividends;
+    const monthlyRate = Math.pow(1 + targetAnnualReturn / 100, 1 / 12) - 1;
+    const npvAtTargetReturn = cashFlows.reduce(
+      (sum, cashFlow, index) => sum + cashFlow / Math.pow(1 + monthlyRate, index + 1),
+      0,
+    );
+
+    let low = 1;
+    let high = chit.chitValue - 1;
+    for (let index = 0; index < 60; index += 1) {
+      const mid = Math.floor((low + high) / 2);
+      const candidateSchedule = this.buildChitSchedule(chit, true, withdrawalMonth, mid);
+      const candidateInstallments = candidateSchedule.reduce((sum, row) => sum + row.installmentPaid, 0);
+      const candidateTerminal = candidateSchedule.reduce((sum, row) => sum + row.terminalDividend, 0);
+      const candidateFlows = candidateSchedule.map((row) => -row.installmentPaid);
+      candidateFlows[withdrawalMonth - 1] += mid;
+      candidateFlows[candidateFlows.length - 1] += candidateTerminal;
+      const candidateNpv = candidateFlows.reduce(
+        (sum, cashFlow, i) => sum + cashFlow / Math.pow(1 + monthlyRate, i + 1),
+        0,
+      );
+      const candidateNetCost = candidateInstallments - candidateTerminal;
+      if (candidateNpv >= 0 && candidateNetCost >= 0) high = mid;
+      else low = mid + 1;
+    }
+    const minimumWinningPayoutForTargetReturn = low;
+    return {
+      chitId: id,
+      withdrawalMonth,
+      winningBid,
+      totalInstallments,
+      terminalDividends,
+      netCashCost,
+      payout: winningBid,
+      nominalNetGain,
+      nominalReturnPercent: netCashCost > 0 ? (nominalNetGain / netCashCost) * 100 : 0,
+      npvAtTargetReturn,
+      targetAnnualReturn,
+      maximumDiscountBidForTargetReturn: chit.chitValue - minimumWinningPayoutForTargetReturn,
+      minimumWinningPayoutForTargetReturn,
+      monthlySchedule: schedule,
+      assumptions: [
+        'First and final installments are fixed at the maximum monthly installment.',
+        'Auction dividends reduce subsequent installments and are not subtracted twice.',
+        'Terminal dividends are credited separately.',
+        'Final-month payout equals chit value minus commission.',
+        'Projected auction bids are estimates from recorded bids.',
+      ],
+    };
+  }
+
+  private buildChitSchedule(
+    chit: any,
+    includeProjection: boolean,
+    overrideMonth?: number,
+    overrideBid?: number,
+  ): any[] {
+    const bids = this.projectChitBids(chit);
+    if (overrideMonth && overrideBid) bids[overrideMonth - 1] = overrideBid;
+    const raw = bids.map((winningBid, index) => {
+      const month = index + 1;
+      const auction = chit.auctions.find(
+        (item: any) => item.month === month && item.verified === true,
+      );
+      const hasOverrideConflict = auction
+        && overrideMonth === month
+        && overrideBid !== undefined
+        && Number(overrideBid) !== Number(auction.winningBid);
+      const isActual = !!auction && !hasOverrideConflict;
+      const discount = Math.max(0, chit.chitValue - winningBid);
+      const commission = chit.commissionType === 'PERCENT'
+        ? (chit.chitValue * chit.commissionValue) / 100
+        : chit.commissionValue;
+      const distributableDiscount = Math.max(0, discount - commission);
+      return {
+        month,
+        winningBid,
+        discount,
+        commission,
+        dividendPerMember: distributableDiscount / chit.members,
+        installmentPaid: 0,
+        terminalDividend: 0,
+        isActual,
+        source: isActual ? 'ACTUAL' : 'PROJECTED',
+      };
+    });
+    raw.forEach((row, index) => {
+      const firstOrLast = row.month === 1 || row.month === chit.duration;
+      const previousDividend = index > 0 ? raw[index - 1].dividendPerMember : 0;
+      row.installmentPaid = chit.firstAndLastFixed && firstOrLast
+        ? chit.monthlyInstallment
+        : Math.max(0, chit.monthlyInstallment - previousDividend);
+      if ((chit.terminalDividendMonths ?? []).includes(row.month)) {
+        row.terminalDividend = row.dividendPerMember;
+      }
+    });
+    return raw;
+  }
+
+  private getChitCommission(chit: any): number {
+    return chit.commissionType === 'PERCENT'
+      ? (Number(chit.chitValue) * Number(chit.commissionValue ?? 0)) / 100
+      : Number(chit.commissionValue ?? 0);
+  }
+
+  private projectChitBids(chit: any): number[] {
+    const actual = [...(chit.auctions ?? [])]
+      .sort((a, b) => a.month - b.month);
+    if (!actual.length) {
+      return Array.from({ length: chit.duration }, (_, index) => {
+        const ratio = chit.duration === 1 ? 0 : index / (chit.duration - 1);
+        const finalBid = Math.max(1, chit.chitValue - this.getChitCommission(chit));
+        const startBid = Math.round(chit.chitValue * 0.76);
+        return index === chit.duration - 1
+          ? finalBid
+          : Math.round(startBid + (finalBid - startBid) * ratio);
+      });
+    }
+    const bids = Array.from({ length: chit.duration }, (_, index) => {
+      const month = index + 1;
+      const exact = actual.find((auction) => auction.month === month);
+      return exact ? exact.winningBid : 0;
+    });
+
+    const firstActual = actual[0];
+    const firstKnownBid =
+      firstActual.month === 1
+        ? firstActual.winningBid
+        : Math.round(chit.chitValue * 0.76);
+    if (!bids[0]) bids[0] = firstKnownBid;
+
+    for (let index = 0; index < actual.length - 1; index += 1) {
+      const left = actual[index];
+      const right = actual[index + 1];
+      const monthDifference = right.month - left.month;
+      for (let month = left.month + 1; month < right.month; month += 1) {
+        const ratio = (month - left.month) / monthDifference;
+        bids[month - 1] = Math.round(
+          left.winningBid + (right.winningBid - left.winningBid) * ratio,
+        );
+      }
+    }
+
+    const last = actual[actual.length - 1];
+    const previous = actual.length > 1 ? actual[actual.length - 2] : null;
+    const defaultIncrease =
+      Math.max(1, Math.round(chit.chitValue * 0.20 / Math.max(1, chit.duration - 1)));
+    let monthlyIncrease = previous && last.month > previous.month
+      ? (last.winningBid - previous.winningBid) / (last.month - previous.month)
+      : defaultIncrease;
+
+    if (last.month === 1 && actual.length === 1) {
+      monthlyIncrease = defaultIncrease;
+    }
+    monthlyIncrease = Math.max(1, monthlyIncrease);
+
+    for (let month = last.month + 1; month <= chit.duration; month += 1) {
+      const previousBid = month === last.month + 1 ? last.winningBid : bids[month - 2];
+      bids[month - 1] = Math.min(
+        chit.chitValue,
+        Math.round(previousBid + monthlyIncrease),
+      );
+    }
+
+    for (let month = 1; month < firstActual.month; month += 1) {
+      if (month === 1 && firstActual.month === 1) continue;
+      const previousBid = month === 1 ? firstKnownBid : bids[month - 2];
+      bids[month - 1] = Math.min(
+        firstActual.winningBid,
+        Math.round(previousBid + defaultIncrease),
+      );
+    }
+
+    for (let month = 1; month < chit.duration; month += 1) {
+      bids[month] = Math.max(bids[month], bids[month - 1]);
+    }
+
+    const finalBid = Math.max(1, Number(chit.chitValue) - this.getChitCommission(chit));
+    const projected = bids.map((bid, index) => {
+      if (index === chit.duration - 1) return finalBid;
+      if (bid > 0 && bid < chit.chitValue) return bid;
+      if (bid <= 0) {
+        return Math.min(chit.chitValue, Math.round(firstKnownBid + defaultIncrease * index));
+      }
+      return chit.chitValue - 1;
+    });
+
+    return projected;
   }
 
   private resolveExpenseType(type?: string): ExpenseMode {

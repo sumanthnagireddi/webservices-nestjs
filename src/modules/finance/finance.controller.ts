@@ -351,4 +351,58 @@ export class FinanceController {
   ) {
     return this.financeService.markCardBillAsPaid(cardId, month, body.isPaid);
   }
+
+  @Get('/chits/dashboard')
+  getChitDashboard() {
+    return this.financeService.getChitDashboard();
+  }
+
+  @Get('/chits')
+  getChits() {
+    return this.financeService.getChits();
+  }
+
+  @Post('/chits')
+  createChit(@Body() body: any) {
+    return this.financeService.createChit(body);
+  }
+
+  @Get('/chits/:id')
+  getChit(@Param('id') id: string) {
+    return this.financeService.getChit(id);
+  }
+
+  @Post('/chits/:id/auctions')
+  addChitAuction(
+    @Param('id') id: string,
+    @Body() body: { month: number; winningBid: number },
+  ) {
+    return this.financeService.addChitAuction(id, body);
+  }
+
+  @Patch('/chits/:id/auctions/:month/verify')
+  verifyChitAuction(
+    @Param('id') id: string,
+    @Param('month') month: string,
+  ) {
+    return this.financeService.verifyChitAuction(id, Number(month));
+  }
+
+  @Post('/chits/:id/simulate')
+  simulateChit(
+    @Param('id') id: string,
+    @Body() body: { withdrawalMonth: number; winningBid: number; targetAnnualReturn?: number },
+  ) {
+    return this.financeService.simulateChit(id, body);
+  }
+
+  @Patch('/chits/:id')
+  updateChit(@Param('id') id: string, @Body() body: any) {
+    return this.financeService.updateChit(id, body);
+  }
+
+  @Delete('/chits/:id')
+  deleteChit(@Param('id') id: string) {
+    return this.financeService.deleteChit(id);
+  }
 }

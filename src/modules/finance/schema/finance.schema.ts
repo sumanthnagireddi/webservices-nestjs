@@ -11,7 +11,8 @@ export type FinanceType =
   | 'construction'
   | 'home_budget'
   | 'card'
-  | 'card_bill';
+  | 'card_bill'
+  | 'chit';
 
 export const FINANCE_TYPES = [
   'expense',
@@ -22,6 +23,7 @@ export const FINANCE_TYPES = [
   'home_budget',
   'card',
   'card_bill',
+  'chit',
 ] as const satisfies readonly FinanceType[];
 
 export function isFinanceType(value: string | undefined): value is FinanceType {
@@ -113,6 +115,54 @@ export class Finance {
 
   @Prop()
   isPaid: boolean;
+
+  @Prop()
+  startMonth: string;
+
+  @Prop()
+  chitValue: number;
+
+  @Prop()
+  duration: number;
+
+  @Prop()
+  members: number;
+
+  @Prop()
+  monthlyInstallment: number;
+
+  @Prop()
+  commissionType: 'PERCENT' | 'FIXED';
+
+  @Prop()
+  commissionValue: number;
+
+  @Prop()
+  currentMonth: number;
+
+  @Prop()
+  firstAndLastFixed: boolean;
+
+  @Prop({ type: [Number], default: [] })
+  terminalDividendMonths: number[];
+
+  @Prop({
+    type: [
+      {
+        month: Number,
+        winningBid: Number,
+        isActual: { type: Boolean, default: true },
+        verified: { type: Boolean, default: false },
+      },
+    ],
+    default: [],
+  })
+  auctions: {
+    month: number;
+    winningBid: number;
+    isActual?: boolean;
+    verified?: boolean;
+  }[];
 
   @Prop({
     type: [
