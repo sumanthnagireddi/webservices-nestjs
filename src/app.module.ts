@@ -15,6 +15,7 @@ import { AtlassianModule } from './modules/atlassian/atlassian.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SearchModule } from './modules/search/search.module';
 import { ContentModule } from './modules/content/content.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 const DEFAULT_MONGODB_DNS_SERVERS = ['1.1.1.1', '8.8.8.8'];
 
@@ -71,6 +72,7 @@ function getMongoDnsServers(configService: ConfigService): string[] {
     AtlassianModule,
     NotificationsModule,
     ContentModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
