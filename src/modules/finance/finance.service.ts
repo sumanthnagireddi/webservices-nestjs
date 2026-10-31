@@ -638,6 +638,8 @@ export class FinanceService {
         commission,
         dividendPerMember: distributableDiscount / chit.members,
         installmentPaid: 0,
+        amountPaid: 0,
+        totalAmountPaid: 0,
         terminalDividend: 0,
         isActual,
         source: isActual ? 'ACTUAL' : 'PROJECTED',
