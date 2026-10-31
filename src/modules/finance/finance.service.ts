@@ -329,6 +329,12 @@ export class FinanceService {
           isActual: auction.isActual !== false,
           verified: auction.verified === true,
         })),
+      payments: [...(raw.payments ?? [])]
+        .sort((a: any, b: any) => a.month - b.month)
+        .map((payment: any) => ({
+          month: Number(payment.month),
+          amountPaid: Number(payment.amountPaid),
+        })),
     };
   }
 
@@ -377,6 +383,7 @@ export class FinanceService {
         ? body.terminalDividendMonths.map(Number)
         : [],
       auctions: [],
+      payments: [],
       isDeleted: false,
     });
     return this.normalizeChit(document);
@@ -432,6 +439,34 @@ export class FinanceService {
     raw.auctions = auctions.sort((a, b) => a.month - b.month);
     raw.currentMonth = Math.max(raw.currentMonth ?? 1, month);
     raw.markModified('auctions');
+    await raw.save();
+    return this.normalizeChit(raw);
+  }
+
+  async setChitMonthlyPayment(
+    id: string,
+    month: number,
+    amountPaid: number,
+  ): Promise<any> {
+    const raw = await this.financeModel.findOne({
+      _id: id,
+      type: 'chit',
+      isDeleted: { $ne: true },
+    }).exec();
+    if (!raw) throw new NotFoundException('Chit not found');
+    if (month < 1 || month > raw.duration) {
+      throw new BadRequestException('Payment month is out of range');
+    }
+    if (!Number.isFinite(amountPaid) || amountPaid < 0) {
+      throw new BadRequestException('Amount paid must be zero or greater');
+    }
+
+    const payments = (raw.payments ?? []).filter(
+      (payment: any) => Number(payment.month) !== month,
+    );
+    payments.push({ month, amountPaid });
+    raw.payments = payments.sort((a: any, b: any) => a.month - b.month);
+    raw.markModified('payments');
     await raw.save();
     return this.normalizeChit(raw);
   }
@@ -617,6 +652,20 @@ export class FinanceService {
       if ((chit.terminalDividendMonths ?? []).includes(row.month)) {
         row.terminalDividend = row.dividendPerMember;
       }
+    });
+    const paymentMap = new Map(
+      (chit.payments ?? []).map((payment: any) => [
+        Number(payment.month),
+        Number(payment.amountPaid),
+      ]),
+    );
+    let cumulativeAmountPaid = 0;
+    raw.forEach((row) => {
+      row.amountPaid = paymentMap.has(row.month)
+        ? Number(paymentMap.get(row.month))
+        : row.installmentPaid;
+      cumulativeAmountPaid += row.amountPaid;
+      row.totalAmountPaid = cumulativeAmountPaid;
     });
     return raw;
   }

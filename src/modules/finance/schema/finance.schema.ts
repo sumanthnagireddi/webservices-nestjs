@@ -167,6 +167,20 @@ export class Finance {
   @Prop({
     type: [
       {
+        month: Number,
+        amountPaid: Number,
+      },
+    ],
+    default: [],
+  })
+  payments: {
+    month: number;
+    amountPaid: number;
+  }[];
+
+  @Prop({
+    type: [
+      {
         id: { type: String, default: () => new Types.ObjectId().toString() },
         amount: Number,
         date: String,

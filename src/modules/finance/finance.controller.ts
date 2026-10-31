@@ -380,6 +380,19 @@ export class FinanceController {
     return this.financeService.addChitAuction(id, body);
   }
 
+  @Patch('/chits/:id/payments/:month')
+  setChitMonthlyPayment(
+    @Param('id') id: string,
+    @Param('month') month: string,
+    @Body() body: { amountPaid: number },
+  ) {
+    return this.financeService.setChitMonthlyPayment(
+      id,
+      Number(month),
+      Number(body.amountPaid),
+    );
+  }
+
   @Patch('/chits/:id/auctions/:month/verify')
   verifyChitAuction(
     @Param('id') id: string,
