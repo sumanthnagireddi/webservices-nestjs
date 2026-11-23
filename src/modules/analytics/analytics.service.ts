@@ -41,4 +41,71 @@ export class AnalyticsService {
       .exec();
     return { total: visits.length, visits };
   }
+
+  async getDailySummary(days = 7) {
+    const safeDays = Math.min(Math.max(Math.floor(Number(days) || 7), 1), 30);
+    const end = new Date();
+    end.setUTCHours(0, 0, 0, 0);
+    end.setUTCDate(end.getUTCDate() + 1);
+    const start = new Date(end);
+    start.setUTCDate(start.getUTCDate() - safeDays);
+
+    const grouped = await this.analyticsModel.aggregate<{
+      _id: string;
+      visits: number;
+      visitorIds: string[];
+    }>([
+      { $match: { visitedAt: { $gte: start, $lt: end } } },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: '%Y-%m-%d',
+              date: '$visitedAt',
+              timezone: 'UTC',
+            },
+          },
+          visits: { $sum: 1 },
+          visitorIds: { $addToSet: '$visitorId' },
+        },
+      },
+    ]).exec();
+
+    const byDate = new Map(grouped.map((day) => [
+      day._id,
+      {
+        visits: day.visits,
+        uniqueVisitors: day.visitorIds.filter(
+          (visitorId) => visitorId && visitorId !== 'unknown',
+        ).length,
+      },
+    ]));
+    const totalUniqueVisitors = new Set(
+      grouped.flatMap((day) => day.visitorIds).filter(
+        (visitorId) => visitorId && visitorId !== 'unknown',
+      ),
+    ).size;
+    const daily: Array<{
+      date: string;
+      visits: number;
+      uniqueVisitors: number;
+    }> = [];
+    for (let offset = safeDays - 1; offset >= 0; offset -= 1) {
+      const date = new Date(end);
+      date.setUTCDate(date.getUTCDate() - offset - 1);
+      const key = date.toISOString().slice(0, 10);
+      daily.push({
+        date: key,
+        visits: byDate.get(key)?.visits ?? 0,
+        uniqueVisitors: byDate.get(key)?.uniqueVisitors ?? 0,
+      });
+    }
+
+    return {
+      days: safeDays,
+      totalVisits: daily.reduce((total, day) => total + day.visits, 0),
+      totalUniqueVisitors,
+      daily,
+    };
+  }
 }

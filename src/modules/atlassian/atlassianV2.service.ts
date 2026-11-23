@@ -1,5 +1,6 @@
 import { HttpService } from '@nestjs/axios';
 import {
+  BadGatewayException,
   Injectable,
   Logger,
   NotFoundException,
@@ -9,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { firstValueFrom } from 'rxjs';
+import { isAxiosError } from 'axios';
 import {
   ContentVersion,
   ContentVersionDocument,
@@ -24,8 +26,9 @@ import {
 import {
   ConfluenceFolder,
   ConfluenceFolderDocument,
+  ConfluencePage,
+  ConfluencePageDocument,
 } from './atlassian-sync.schemas';
-import { ConfluencePage, ConfluencePageDocument } from './atlassian-sync.schemas';
 import { AtlassianPageSummary } from './atlassian.interfaces';
 import {
   CreatePageDto,
@@ -53,6 +56,17 @@ interface PageContentResponse {
   lastModifiedBy: string;
   lastModifiedAt: string;
   url: string; // direct Confluence link
+}
+
+interface PageContentData {
+  id: string;
+  title: string;
+  spaceKey: string;
+  parentId: string | null;
+  body: string;
+  version: number;
+  lastModifiedBy: string;
+  lastModifiedAt?: string | Date;
 }
 
 interface ConfluenceApiPage {
@@ -100,12 +114,8 @@ export class AtlassianServiceV2 {
    */
 // ─── 1. GET FOLDER + SUBFOLDER TREE (from MongoDB only) ──────────────────────
 async getFolderTree(spaceKey?: string): Promise<FolderNode[]> {
-  const folderFilter: any = { status: { $ne: 'deleted' } };
-  const pageFilter: any = { status: { $ne: 'trashed' } };
-  if (spaceKey) {
-    folderFilter.spaceKey = spaceKey;
-    pageFilter.spaceKey = spaceKey;
-  }
+  const folderFilter = { status: { $ne: 'deleted' as const }, ...(spaceKey ? { spaceKey } : {}) };
+  const pageFilter = { status: { $ne: 'trashed' as const }, ...(spaceKey ? { spaceKey } : {}) };
 
   const allFolders = await this.confluenceFolderModel.find(folderFilter).lean().exec();
   const allPages = await this.confluencePageModel.find(pageFilter).lean().exec();
@@ -178,29 +188,154 @@ async getFolderTree(spaceKey?: string): Promise<FolderNode[]> {
   return roots;
 }
 
-// ─── 2. GET PAGE CONTENT (from MongoDB only) ──────────────────────────────────
-async getPageContent(pageId: string): Promise<PageContentResponse> {
-  const page = await this.atlassianContentModel
-    .findOne({ atlassianId: pageId, status: { $ne: 'trashed' } })
-    .lean()
-    .exec();
+  // ─── 2. GET PAGE CONTENT ──────────────────────────────────────────────────────
+  async getPageContent(pageId: string): Promise<PageContentResponse> {
+    const page = await this.atlassianContentModel
+      .findOne({ atlassianId: pageId, status: { $ne: 'trashed' } })
+      .lean()
+      .exec();
 
-  if (!page) {
-    throw new NotFoundException(`Page ${pageId} not found. It may not be synced yet — wait for the next cron run.`);
+    if (page?.body?.trim()) {
+      const storedPage = page as AtlassianContent & {
+        spaceKey?: string;
+        version?: number;
+        lastModifiedBy?: string;
+        updatedAt?: Date;
+      };
+
+      return this.toPageContentResponse({
+        id: storedPage.atlassianId,
+        title: storedPage.title,
+        spaceKey: storedPage.spaceKey ?? '',
+        parentId: storedPage.parentId ?? null,
+        body: storedPage.body ?? '',
+        version: storedPage.version ?? 1,
+        lastModifiedBy: storedPage.lastModifiedBy ?? '',
+        lastModifiedAt: storedPage.updatedAt,
+      });
+    }
+
+    const syncedPage = await this.confluencePageModel
+      .findOne({ confluenceId: pageId, status: 'current' })
+      .lean()
+      .exec();
+
+    if (syncedPage?.body?.trim()) {
+      return this.toPageContentResponse({
+        id: syncedPage.confluenceId,
+        title: syncedPage.title,
+        spaceKey: syncedPage.spaceKey,
+        parentId: syncedPage.parentId ?? null,
+        body: syncedPage.body ?? '',
+        version: syncedPage.version ?? 1,
+        lastModifiedBy: syncedPage.versionBy ?? '',
+        lastModifiedAt: syncedPage.modifiedAt,
+      });
+    }
+
+    return this.fetchLivePage(pageId);
   }
 
-  return {
-    id: page.atlassianId,
-    title: page.title,
-    spaceKey: (page as any).spaceKey ?? '',
-    parentId: (page as any).parentId ?? null,
-    body: (page as any).body ?? '',
-    version: (page as any).version ?? 1,
-    lastModifiedBy: (page as any).lastModifiedBy ?? '',
-    lastModifiedAt: (page as any).updatedAt?.toISOString() ?? '',
-    url: `${this.getUrl()}/wiki/spaces/${(page as any).spaceKey ?? ''}/pages/${pageId}`,
-  };
-}
+  private async fetchLivePage(pageId: string): Promise<PageContentResponse> {
+    let livePage: ConfluenceApiPage;
+    try {
+      const response = await firstValueFrom(
+        this.http.get<ConfluenceApiPage>(
+          `${this.getUrl()}/wiki/rest/api/content/${encodeURIComponent(pageId)}`,
+          {
+            headers: this.getAuthHeaders(),
+            params: { expand: 'body.storage,version,space,ancestors' },
+          },
+        ),
+      );
+      livePage = response.data;
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 404) {
+        throw new NotFoundException(`Page ${pageId} not found in Confluence`);
+      }
+      throw error;
+    }
+
+    if (
+      !livePage?.id ||
+      !livePage.title ||
+      !livePage.space?.key ||
+      !livePage.version?.number
+    ) {
+      throw new BadGatewayException(
+        'Confluence returned an invalid page response',
+      );
+    }
+
+    const modifiedAt = new Date(livePage.version.when);
+    if (Number.isNaN(modifiedAt.getTime())) {
+      throw new BadGatewayException(
+        'Confluence returned an invalid page modification date',
+      );
+    }
+
+    const ancestors = livePage.ancestors ?? [];
+    const parentId = ancestors.length
+      ? ancestors[ancestors.length - 1].id
+      : null;
+    const body =
+      livePage.body?.storage?.value ?? livePage.body?.view?.value ?? '';
+    const syncedAt = new Date();
+
+    try {
+      await this.confluencePageModel
+        .findOneAndUpdate(
+          { confluenceId: livePage.id },
+          {
+            $set: {
+              confluenceId: livePage.id,
+              type: 'page',
+              title: livePage.title,
+              spaceKey: livePage.space.key,
+              status: 'current',
+              parentId,
+              ancestorIds: ancestors.map((ancestor) => ancestor.id),
+              body,
+              version: livePage.version.number,
+              versionBy: livePage.version.by?.displayName ?? '',
+              modifiedAt,
+              syncedAt,
+            },
+          },
+          { upsert: true, new: true },
+        )
+        .exec();
+    } catch (error) {
+      this.logger.error(
+        `Fetched page ${pageId} live, but failed to cache it`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    this.logger.log(`Fetched unsynced Confluence page ${pageId} live`);
+
+    return this.toPageContentResponse({
+      id: livePage.id,
+      title: livePage.title,
+      spaceKey: livePage.space.key,
+      parentId,
+      body,
+      version: livePage.version.number,
+      lastModifiedBy: livePage.version.by?.displayName ?? '',
+      lastModifiedAt: livePage.version.when,
+    });
+  }
+
+  private toPageContentResponse(page: PageContentData): PageContentResponse {
+    return {
+      ...page,
+      lastModifiedAt:
+        page.lastModifiedAt instanceof Date
+          ? page.lastModifiedAt.toISOString()
+          : (page.lastModifiedAt ?? ''),
+      url: `${this.getUrl()}/wiki/spaces/${encodeURIComponent(page.spaceKey)}/pages/${encodeURIComponent(page.id)}`,
+    };
+  }
 
   // ─── 3. CREATE PAGE ──────────────────────────────────────────────────────────
 
@@ -294,6 +429,9 @@ async getPageContent(pageId: string): Promise<PageContentResponse> {
       title: dto.title,
       space: { key: current.space.key },
       version: { number: nextVersion },
+      ...(dto.parentId && {
+        ancestors: [{ id: dto.parentId }],
+      }),
       body: {
         storage: {
           value: dto.body,
@@ -314,6 +452,7 @@ async getPageContent(pageId: string): Promise<PageContentResponse> {
           title: dto.title,
           body: dto.body,
           version: nextVersion,
+          ...(dto.parentId ? { parentId: dto.parentId } : {}),
           syncedAt: new Date(),
         },
       },
@@ -373,7 +512,14 @@ async getPageContent(pageId: string): Promise<PageContentResponse> {
   // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
   getUrl() {
-    return this.configService.get<string>('ATLASSIAN_SITE_URL');
+    const configuredUrl =
+      this.configService.get<string>('ATLASSIAN_SITE_URL') ?? '';
+    try {
+      const url = new URL(configuredUrl);
+      return url.origin;
+    } catch {
+      return configuredUrl.replace(/\/wiki(?:\/api\/v2)?\/?$/, '');
+    }
   }
 
   getSpaceKey() {

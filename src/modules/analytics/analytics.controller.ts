@@ -28,4 +28,9 @@ export class AnalyticsController {
   listVisits(@Query('limit') limit?: string) {
     return this.analyticsService.listVisits(Number(limit ?? 500));
   }
+
+  @Get('summary')
+  getDailySummary(@Query('days') days?: string) {
+    return this.analyticsService.getDailySummary(Number(days ?? 7));
+  }
 }

@@ -82,4 +82,8 @@ export class UpdatePageDto {
 
   @IsString()
   body!: string;
+
+  @IsOptional()
+  @IsString()
+  parentId?: string;
 }

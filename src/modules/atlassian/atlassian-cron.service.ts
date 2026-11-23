@@ -275,9 +275,36 @@ export class ConfluenceSyncCron implements OnModuleInit {
   // ─────────────────────────────────────────────────────────────
 
   private async resolveSpaceIds(): Promise<void> {
-    this.logger.log('🔍  Resolving space IDs from keys...');
+    this.logger.log('🔍  Resolving space IDs...');
     this.allowedSpaceIds = [];
     this.spaceIdToKey.clear();
+
+    const allSpacesRequested =
+      this.allowedSpaceKeys.some(key => key === '*') ||
+      process.env.CONFLUENCE_SYNC_ALL_SPACES === 'true';
+
+    if (allSpacesRequested) {
+      let nextUrl: string | null = '/wiki/api/v2/spaces';
+      let params: Record<string, any> = { limit: 250 };
+
+      while (nextUrl) {
+        const res = await this.http.get<V2PagedResponse<{ id: string; key: string; name: string }>>(nextUrl, { params });
+        for (const space of res.data.results ?? []) {
+          if (!this.allowedSpaceIds.includes(space.id)) this.allowedSpaceIds.push(space.id);
+          this.spaceIdToKey.set(space.id, space.key);
+          this.logger.log(`  ${space.key} → id=${space.id} name="${space.name}"`);
+        }
+
+        const next = res.data._links?.next;
+        if (!next) break;
+        ({ nextUrl, params } = this.normalizeNextLink(next));
+      }
+
+      if (this.allowedSpaceIds.length === 0) {
+        throw new Error('No accessible Confluence spaces resolved.');
+      }
+      return;
+    }
 
     for (const key of this.allowedSpaceKeys) {
       try {
@@ -597,6 +624,27 @@ export class ConfluenceSyncCron implements OnModuleInit {
    * Returns ALL pages (flat) via cursor pagination.
    * Does NOT include body — just metadata + parentId/parentType.
    */
+  private normalizeNextLink(next: string): { nextUrl: string; params: Record<string, any> } {
+    try {
+      const url = new URL(next, this.getHttpBaseUrl());
+      const pathname = url.pathname;
+      const params = Object.fromEntries(url.searchParams.entries());
+      return { nextUrl: pathname, params };
+    } catch {
+      const [pathname, query = ''] = next.split('?');
+      const params = Object.fromEntries(new URLSearchParams(query).entries());
+      return {
+        nextUrl: pathname.startsWith('/') ? pathname : `/${pathname}`,
+        params,
+      };
+    }
+  }
+
+  private getHttpBaseUrl(): string {
+    const baseURL = this.http.defaults.baseURL;
+    return typeof baseURL === 'string' ? baseURL : 'https://sumanthnagireddi2516.atlassian.net/wiki/api/v2';
+  }
+
   private async fetchAllSpacePages(spaceId: string): Promise<V2Page[]> {
     const results: V2Page[] = [];
     // Start with no cursor
@@ -619,13 +667,9 @@ export class ConfluenceSyncCron implements OnModuleInit {
       this.logger.debug(`  batch=${data.results?.length ?? 0} total so far=${results.length} hasNext=${!!data._links?.next}`);
 
       if (data._links?.next) {
-        // next is a relative path like /wiki/api/v2/spaces/{id}/pages?cursor=xxx
-        // axios baseURL will be prepended — just use the path
-        const nextPath = data._links.next as string;
-        // Strip query string from the URL — cursor is embedded in the path
-        // The next link is a full relative URL with its own query params
-        nextUrl = nextPath.startsWith('/') ? nextPath : `/${nextPath}`;
-        params = {}; // cursor is already in the URL from _links.next
+        const normalized = this.normalizeNextLink(data._links.next);
+        nextUrl = normalized.nextUrl;
+        params = normalized.params;
       } else {
         nextUrl = null;
       }
@@ -677,8 +721,9 @@ export class ConfluenceSyncCron implements OnModuleInit {
       const res = await this.http.get<V2PagedResponse<V2ChildItem>>(nextUrl, { params });
       results.push(...(res.data.results ?? []));
       if (res.data._links?.next) {
-        nextUrl = res.data._links.next as string;
-        params = {};
+        const normalized = this.normalizeNextLink(res.data._links.next);
+        nextUrl = normalized.nextUrl;
+        params = normalized.params;
       } else {
         nextUrl = null;
       }
